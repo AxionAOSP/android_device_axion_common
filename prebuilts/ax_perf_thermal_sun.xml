@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<perf-config>
+    <atmc>
+        <cpu_levels>
+            <level id="1" little="0,2016" mid="0,3014" big="0,2803" prime="0,2956"/>
+            <level id="2" little="0,1980" mid="0,2966" big="0,2758" prime="0,2909"/>
+            <level id="3" little="0,1944" mid="0,2918" big="0,2713" prime="0,2862"/>
+            <level id="4" little="0,1908" mid="0,2870" big="0,2668" prime="0,2815"/>
+            <level id="5" little="0,1872" mid="0,2822" big="0,2623" prime="0,2768"/>
+            <level id="6" little="0,1836" mid="0,2774" big="0,2578" prime="0,2721"/>
+            <level id="7" little="0,1800" mid="0,2726" big="0,2533" prime="0,2674"/>
+            <level id="8" little="0,1764" mid="0,2678" big="0,2488" prime="0,2627"/>
+            <level id="9" little="0,1728" mid="0,2630" big="0,2443" prime="0,2580"/>
+            <level id="10" little="0,1692" mid="0,2582" big="0,2398" prime="0,2533"/>
+            <level id="11" little="0,1656" mid="0,2534" big="0,2353" prime="0,2486"/>
+            <level id="12" little="0,1620" mid="0,2486" big="0,2308" prime="0,2439"/>
+            <level id="13" little="0,1584" mid="0,2438" big="0,2263" prime="0,2392"/>
+            <level id="14" little="0,1548" mid="0,2390" big="0,2218" prime="0,2345"/>
+            <level id="15" little="0,1512" mid="0,2342" big="0,2173" prime="0,2298"/>
+            <level id="16" little="0,1476" mid="0,2294" big="0,2128" prime="0,2251"/>
+            <level id="17" little="0,1440" mid="0,2246" big="0,2083" prime="0,2204"/>
+            <level id="18" little="0,1404" mid="0,2198" big="0,2038" prime="0,2157"/>
+            <level id="19" little="0,1368" mid="0,2150" big="0,1993" prime="0,2110"/>
+            <level id="20" little="0,1332" mid="0,2102" big="0,1948" prime="0,2063"/>
+            <level id="21" little="0,1296" mid="0,2054" big="0,1903" prime="0,2016"/>
+            <level id="22" little="0,1260" mid="0,2006" big="0,1858" prime="0,1969"/>
+            <level id="23" little="0,1224" mid="0,1958" big="0,1813" prime="0,1922"/>
+            <level id="24" little="0,1188" mid="0,1910" big="0,1768" prime="0,1875"/>
+            <level id="25" little="0,1152" mid="0,1862" big="0,1723" prime="0,1828"/>
+            <level id="26" little="0,1116" mid="0,1814" big="0,1678" prime="0,1781"/>
+            <level id="27" little="0,1080" mid="0,1766" big="0,1633" prime="0,1734"/>
+        </cpu_levels>
+        <gpu_levels>
+            <level id="1" min="1150" max="1150"/>
+            <level id="2" min="1100" max="1100"/>
+            <level id="3" min="1050" max="1050"/>
+            <level id="4" min="937" max="937"/>
+            <level id="5" min="873" max="873"/>
+            <level id="6" min="763" max="763"/>
+            <level id="7" min="688" max="688"/>
+            <level id="8" min="644" max="644"/>
+            <level id="9" min="510" max="510"/>
+            <level id="10" min="362" max="362"/>
+            <level id="11" min="264" max="264"/>
+        </gpu_levels>
+        <scenes>
+            <scene name="default_scene">
+                <level id="5">
+                    <action unit="cpu" status="5"/>
+                </level>
+                <level id="8">
+                    <action unit="cpu" status="8"/>
+                </level>
+                <level id="9">
+                    <action unit="cpu" status="10"/>
+                    <action unit="dexopt" status="1"/>
+                </level>
+                <level id="10">
+                    <action unit="cpu" status="11"/>
+                    <action unit="bg_killer" status="3"/>
+                </level>
+                <level id="11">
+                    <action unit="cpu" status="12"/>
+                    <action unit="bg_killer" status="4"/>
+                </level>
+                <level id="12">
+                    <action unit="cpu" status="14"/>
+                </level>
+                <level id="13">
+                    <action unit="cpu" status="16"/>
+                </level>
+                <level id="14">
+                    <action unit="cpu" status="19"/>
+                </level>
+            </scene>
+        </scenes>
+    </atmc>
+</perf-config>
