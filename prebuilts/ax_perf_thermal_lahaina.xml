@@ -12,25 +12,25 @@
 
         <!-- CPU Thermal & Frequency Levels (2 Clusters: Little + Big) -->
         <cpu_levels>
-            <level id="1"  little="0,1804" big="0,2419" prime="0,2841"/>
-            <level id="2"  little="0,1708" big="0,2342" prime="0,2764"/>
-            <level id="3"  little="0,1612" big="0,2227" prime="0,2688"/>
-            <level id="4"  little="0,1497" big="0,2112" prime="0,2592"/>
-            <level id="5"  little="0,1401" big="0,1996" prime="0,2496"/>
-            <level id="6"  little="0,1305" big="0,1881" prime="0,2380"/>
-            <level id="7"  little="0,1209" big="0,1766" prime="0,2265"/>
-            <level id="8"  little="0,1094" big="0,1670" prime="0,2150"/>
-            <level id="9"  little="0,998"  big="0,1555" prime="0,2035"/>
-            <level id="10" little="0,902"  big="0,1440" prime="0,1900"/>
-            <level id="11" little="0,806"  big="0,1324" prime="0,1785"/>
-            <level id="12" little="0,691"  big="0,1209" prime="0,1670"/>
-            <level id="13" little="0,595"  big="0,1075" prime="0,1555"/>
-            <level id="14" little="0,499"  big="0,960"  prime="0,1420"/>
-            <level id="15" little="0,403"  big="0,844"  prime="0,1305"/>
-            <level id="16" little="0,300"  big="0,710"  prime="0,1190"/>
-            <level id="17" little="0,300"  big="0,710"  prime="0,1075"/>
-            <level id="18" little="0,300"  big="0,710"  prime="0,960"/>
-            <level id="19" little="0,300"  big="0,710"  prime="0,844"/>
+            <level id="1"  little="0,1804800" big="0,2419200" prime="0,2841600"/>
+            <level id="2"  little="0,1708800" big="0,2342400" prime="0,2764800"/>
+            <level id="3"  little="0,1612800" big="0,2227200" prime="0,2688000"/>
+            <level id="4"  little="0,1497600" big="0,2112000" prime="0,2592000"/>
+            <level id="5"  little="0,1401600" big="0,1996800" prime="0,2496000"/>
+            <level id="6"  little="0,1305600" big="0,1881600" prime="0,2380800"/>
+            <level id="7"  little="0,1209600" big="0,1766400" prime="0,2265600"/>
+            <level id="8"  little="0,1094400" big="0,1670400" prime="0,2150400"/>
+            <level id="9"  little="0,998400"  big="0,1555200" prime="0,2035200"/>
+            <level id="10" little="0,902400"  big="0,1440000" prime="0,1900800"/>
+            <level id="11" little="0,806400"  big="0,1324800" prime="0,1785600"/>
+            <level id="12" little="0,691200"  big="0,1209600" prime="0,1670400"/>
+            <level id="13" little="0,595200"  big="0,1075200" prime="0,1555200"/>
+            <level id="14" little="0,499200"  big="0,960000"  prime="0,1420800"/>
+            <level id="15" little="0,403200"  big="0,844800"  prime="0,1305600"/>
+            <level id="16" little="0,300000"  big="0,710400"  prime="0,1190400"/>
+            <level id="17" little="0,300000"  big="0,710400"  prime="0,1075200"/>
+            <level id="18" little="0,300000"  big="0,710400"  prime="0,960000"/>
+            <level id="19" little="0,300000"  big="0,710400"  prime="0,844800"/>
         </cpu_levels>
 
         <!-- Adreno 660 GPU Frequency Ladder  -->
@@ -46,5 +46,67 @@
             <level id="10" min="379" max="379"/>
             <level id="11" min="315" max="315"/>
         </gpu_levels>
+        <scenes>
+            <scene name="default_scene">
+                <level id="4">
+                    <action unit="cpu" status="2" />
+                </level>
+                <level id="7">
+                    <action unit="cpu" status="3" />
+                    <action unit="bg_killer" status="1" />
+                </level>
+                <level id="11">
+                    <action unit="cpu" status="5" />
+                    <action unit="dexopt" status="1" />
+                    <action unit="bg_killer" status="3" />
+                </level>
+                <level id="14">
+                    <action unit="cpu" status="7" />
+                    <action unit="bg_killer" status="4" />
+                </level>
+            </scene>
+            <scene name="game">
+                <level id="4">
+                    <action unit="cpu" status="1" />
+                    <action unit="gpu" status="1" />
+                </level>
+                <level id="7">
+                    <action unit="cpu" status="2" />
+                    <action unit="gpu" status="1" />
+                </level>
+                <level id="11">
+                    <action unit="cpu" status="4" />
+                    <action unit="gpu" status="2" />
+                </level>
+                <level id="14">
+                    <action unit="cpu" status="7" />
+                    <action unit="gpu" status="4" />
+                </level>
+            </scene>
+            <scene name="heating_fgs">
+                <level id="5">
+                    <action unit="cpu" status="3" />
+                </level>
+                <level id="11">
+                    <action unit="cpu" status="6" />
+                </level>
+            </scene>
+            <scene name="axcamera_photo_preview">
+                <level id="5">
+                    <action unit="cpu" status="3" />
+                </level>
+                <level id="11">
+                    <action unit="cpu" status="5" />
+                </level>
+            </scene>
+        </scenes>
+        <apps>
+            <app pkgs="com.antutu.ABenchMark,com.andromeda.androbench2,com.primatelabs.geekbench5,com.primatelabs.geekbench6,net.kishonti.gfxbench.v50000.corporate" scene="default_scene" />
+            <app pkgs="com.futuremark.dmandroid.application" scene="game" />
+            <app pkgs="com.facebook.katana,com.facebook.orca,com.instagram.android,com.whatsApp,com.snapchat.android,us.zoom.videomeetings,com.microsoft.teams" scene="default_scene" />
+            <app pkgs="com.google.android.apps.maps,com.waze" scene="default_scene" />
+            <app pkgs="com.android.camera,org.codeaurora.snapcam,com.oplus.camera,org.lineageos.aperture,com.xiaomi.camera" scene="axcamera_photo_preview" />
+            <app pkgs="com.HoYoverse.hkrpgoversea,com.miHoYo.Yuanshen,com.miHoYo.GenshinImpact,com.miHoYo.hkrpg,com.epicgames.fortnite,com.mobile.legends,com.dts.freefireth,com.mojang.minecraftpe,com.tencent.tmgp.sgame,com.levelinfinite.sgameGlobal,com.tencent.ig,com.pubg.imobile,com.tencent.tmgp.pubgmhd,com.activision.callofduty.shooter,com.garena.game.codm" scene="game" />
+        </apps>
     </atmc>
 </perf-config>
