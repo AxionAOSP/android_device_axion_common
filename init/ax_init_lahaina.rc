@@ -7,7 +7,7 @@ on post-fs-data
     chmod 0660 /sys/devices/system/cpu/cpufreq/policy0/scaling_min_freq
     chmod 0660 /sys/devices/system/cpu/cpufreq/policy0/scaling_max_freq
 
-    # CPU Big Cluster (cortex-a76)
+    # CPU Big Cluster (cortex-a78)
     chown system system /sys/devices/system/cpu/cpufreq/policy4/scaling_governor
     chown system system /sys/devices/system/cpu/cpufreq/policy4/scaling_min_freq
     chown system system /sys/devices/system/cpu/cpufreq/policy4/scaling_max_freq
