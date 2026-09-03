@@ -1,4 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    Kernel Manager config - SM8735 (Snapdragon 8s Gen 4), POCO F7 (onyx)
+
+    Pulled from the device sysfs (4 EPSS freq domains, 8 cores):
+      policy0 (cpu0-1)  364800 - 2016000 kHz
+      policy2 (cpu2-4)  480000 - 3014400 kHz
+      policy5 (cpu5-6)  480000 - 2803200 kHz
+      policy7 (cpu7)    480000 - 2956800 kHz
+        policy7 reports cpuinfo_max_freq=3206400, but scaling_available_frequencies
+        stops at 2956800: the higher OPP is not exposed to cpufreq, so 2956800 is the
+        ceiling a control can actually reach.
+
+    Adreno 825 (adreno-gpu-gen8-6-0): the values below are listed in the same order as
+    /sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies (264000000 - 1150000000,
+    11 OPP). AxKernelManagerService normalizes them to ascending, and 1025 MHz appears
+    in the GPU device tree but is not exposed by devfreq, so it is deliberately absent.
+    currentNode (gpuclk) and usageNode (gpu_busy_percentage) both exist on this SoC.
+-->
 <kernel-manager>
     <cpu
         id="little"

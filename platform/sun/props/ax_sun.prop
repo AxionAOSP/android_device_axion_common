@@ -1,16 +1,29 @@
-# dynamic duration
+# dynamic duration (values in ns) - AxionOS AxVsyncDuration
+# frameworks/native/services/surfaceflinger/Scheduler/AxVsyncDuration.cpp
+#
+# Frame periods of this panel (verified on device, POCO F7 / onyx):
+#   60 Hz = 16666666   90 Hz = 11111111   120 Hz = 8333333
+#
+# Two rules, taken from WorkDuration::constructOffsets(), which derives the early /
+# earlyGpu / late VsyncConfigs (offsets included) *only* from these six values per Hz:
+#   1. sf.early.<hz> and sf.earlyGl.<hz> must be strictly greater than sf.late.<hz>:
+#      if they are equal, the three configs collapse into one and the early/late
+#      distinction disappears.
+#   2. app.late / app.early / app.earlyGl are kept equal for a given <hz>, like the
+#      other platform files.
+# sf.late.<hz> stays below one frame period; app.<x>.<hz> may exceed it.
 persist.sys.sf.dynamic_duration.switch=1
 persist.sys.sf.dynamic_duration.sf.late.60=10500000
 persist.sys.sf.dynamic_duration.app.late.60=13666666
-persist.sys.sf.dynamic_duration.sf.early.60=10500000
+persist.sys.sf.dynamic_duration.sf.early.60=16600000
 persist.sys.sf.dynamic_duration.app.early.60=13666666
-persist.sys.sf.dynamic_duration.sf.earlyGl.60=10500000
+persist.sys.sf.dynamic_duration.sf.earlyGl.60=16600000
 persist.sys.sf.dynamic_duration.app.earlyGl.60=13666666
 persist.sys.sf.dynamic_duration.sf.late.90=9400000
-persist.sys.sf.dynamic_duration.app.late.90=12400000
-persist.sys.sf.dynamic_duration.sf.early.90=9400000
+persist.sys.sf.dynamic_duration.app.late.90=12800000
+persist.sys.sf.dynamic_duration.sf.early.90=11111111
 persist.sys.sf.dynamic_duration.app.early.90=12800000
-persist.sys.sf.dynamic_duration.sf.earlyGl.90=9400000
+persist.sys.sf.dynamic_duration.sf.earlyGl.90=11111111
 persist.sys.sf.dynamic_duration.app.earlyGl.90=12800000
 persist.sys.sf.dynamic_duration.sf.late.120=8300000
 persist.sys.sf.dynamic_duration.app.late.120=11600000

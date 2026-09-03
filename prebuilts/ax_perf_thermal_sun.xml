@@ -1,4 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+    SM8735 (Snapdragon 8s Gen 4) thermal / performance ladder, POCO F7 (onyx)
+
+    CPU topology (4 clusters, verified against the device):
+      policy0 cpu0-1   364.8 - 2016.0 MHz  -> little
+      policy2 cpu2-4   480.0 - 3014.4 MHz  -> mid
+      policy5 cpu5-6   480.0 - 2803.2 MHz  -> big
+      policy7 cpu7     480.0 - 2956.8 MHz  -> prime
+    Level 1 of every column is the usable maximum of that cluster; frequencies are in
+    MHz (AxThermalBoostPolicy.toCpuKhz() multiplies values below 10000 by 1000). The
+    first number of each pair is the min-frequency floor and is 0 on purpose, like the
+    other qcom platform files.
+
+    Known framework gaps on a 4-cluster device, left here so they are not mistaken for
+    wrong values in this file:
+      - AxPerfConfig.java parses little/big/titanium/prime only, so mid= is ignored, and
+        ax_atcm.c keeps ATCM_CLUSTERS at 3 and assigns the floors by policy order, so on
+        this SoC policy7 would receive nothing;
+      - <gpu_levels> has no consumer yet, it is kept for parity with the other platforms;
+      - the app->scene indirection via scene= is not parsed, so <apps> repeats levels.
+
+    gpu_levels mirrors /sys/class/kgsl/kgsl-3d0/devfreq/available_frequencies (Adreno 825).
+-->
 <perf-config>
     <atmc>
         <cpu_levels>
@@ -73,6 +96,75 @@
                     <action unit="cpu" status="19"/>
                 </level>
             </scene>
+
+            <!-- Selected automatically while GameManager reports a game: keeps the
+                 clocks above default_scene at the same thermal severity. -->
+            <scene name="game">
+                <level id="4">
+                    <action unit="cpu" status="2"/>
+                    <action unit="gpu" status="1"/>
+                </level>
+                <level id="7">
+                    <action unit="cpu" status="4"/>
+                    <action unit="gpu" status="1"/>
+                </level>
+                <level id="11">
+                    <action unit="cpu" status="8"/>
+                    <action unit="gpu" status="2"/>
+                </level>
+                <level id="14">
+                    <action unit="cpu" status="13"/>
+                    <action unit="gpu" status="4"/>
+                </level>
+            </scene>
+
+            <!-- Foreground services that report a heating state. -->
+            <scene name="heating_fgs">
+                <level id="5">
+                    <action unit="cpu" status="7"/>
+                </level>
+                <level id="11">
+                    <action unit="cpu" status="14"/>
+                </level>
+            </scene>
+
+            <!-- Camera preview: smoothness first, then let default_scene take over. -->
+            <scene name="axcamera_photo_preview">
+                <level id="5">
+                    <action unit="cpu" status="6"/>
+                </level>
+                <level id="11">
+                    <action unit="cpu" status="12"/>
+                </level>
+            </scene>
         </scenes>
+        <apps>
+            <!-- Benchmarks: no thermal clamp until the very deep levels. -->
+            <app pkgs="com.antutu.ABenchMark,com.andromeda.androbench2,com.primatelabs.geekbench6,net.kishonti.gfxbench.v50000.corporate,com.miui.cit">
+                <level id="5">
+                    <action unit="cpu" status="0"/>
+                </level>
+                <level id="13">
+                    <action unit="cpu" status="21"/>
+                </level>
+                <level id="14">
+                    <action unit="cpu" status="24"/>
+                </level>
+            </app>
+
+            <!-- Heavy titles: the game scene is only picked through GameManager, so the
+                 well known ones are pinned here too. -->
+            <app pkgs="com.miHoYo.GenshinImpact,com.miHoYo.Yuanshen,com.miHoYo.hkrpg,com.HoYoverse.hkrpgoversea,com.tencent.tmgp.pubgmhd,com.pubg.imobile">
+                <level id="5">
+                    <action unit="cpu" status="2"/>
+                </level>
+                <level id="11">
+                    <action unit="cpu" status="8"/>
+                </level>
+                <level id="14">
+                    <action unit="cpu" status="14"/>
+                </level>
+            </app>
+        </apps>
     </atmc>
 </perf-config>
