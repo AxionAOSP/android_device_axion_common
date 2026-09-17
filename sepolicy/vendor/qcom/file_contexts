@@ -1,0 +1,1 @@
+/sys/devices(/platform)?/soc/[a-f0-9]+.qcom,kgsl-3d0/kgsl/kgsl-3d0/max_gpuclk u:object_r:vendor_sysfs_kgsl_max_gpuclk:s0
