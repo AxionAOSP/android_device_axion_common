@@ -9,7 +9,6 @@ include device/axion/common/config/properties.mk
 include device/axion/common/config/version.mk
 include device/axion/common/config/dexpreopt.mk
 include device/axion/common/config/packages.mk
-include device/axion/common/config/vulkan/vulkan.mk
 include device/axion/common/config/ramplus/ramplus.mk
 
 PRODUCT_PACKAGE_OVERLAYS += device/axion/common/overlay

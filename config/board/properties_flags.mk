@@ -13,7 +13,7 @@ $(shell python3 device/axion/common/build/gen_axion_props.py $(AXION_GEN_PROP) \
   persist.sys.ax_doze_dt2p=$(TARGET_DOZE_DOUBLE_TAP_PULSE_SUPPORTED) \
   persist.sys.ax_doze_pickup=$(TARGET_DOZE_PICKUP_PULSE_SUPPORTED) \
   persist.sys.ax_doze_fps=$(TARGET_DOZE_SIDE_FPS_PULSE_SUPPORTED) \
-  persist.sys.vk_use_ogl_for_media=$(TARGET_NEEDS_VULKAN_MEDIA_FIX) \
+  persist.sys.vk_use_ogl_for_media=false \
   persist.sys.ax_disable_pwrhal=$(TARGET_DISABLES_LIBPERF))
 
 TARGET_PRODUCT_PROP += $(AXION_GEN_PROP)
