@@ -136,81 +136,12 @@ int axd_reset_affinity(pid_t pid)
     return reset_count > 0 ? 0 : -ESRCH;
 }
 
-int axd_set_boost(pid_t pid, int boost_level)
-{
-    struct task_struct *task;
-    struct task_struct *t;
-    int target_nice;
-
-    if (pid <= AXD_INVALID_PID) {
-        return -EINVAL;
-    }
-
-    target_nice = (boost_level > 0) ? AXD_NICE_BOOST : AXD_NICE_NORMAL;
-
-    rcu_read_lock();
-    task = find_task_by_vpid(pid);
-    if (!task || !task->signal || (task->flags & PF_EXITING)) {
-        rcu_read_unlock();
-        return -ESRCH;
-    }
-
-    for_each_thread(task, t) {
-        set_user_nice(t, target_nice);
-    }
-    rcu_read_unlock();
-
-    atomic64_inc(&g_axd_stats.boost_set_count);
-    return 0;
-}
-
-int axd_pin_kswapd(const struct cpumask *mask)
-{
-    struct task_struct *task;
-    struct task_struct *kswapd_tasks[AXD_MAX_KSWAPD_TASKS];
-    int count = 0;
-    int pinned = 0;
-    int i;
-
-    if (!mask || cpumask_empty(mask) || !cpumask_intersects(mask, cpu_online_mask)) {
-        return -EINVAL;
-    }
-
-    rcu_read_lock();
-    for_each_process(task) {
-        if (strncmp(task->comm, AXD_KSWAPD_COMM_PREFIX, AXD_KSWAPD_COMM_LEN) != 0) {
-            continue;
-        }
-        if (count >= AXD_MAX_KSWAPD_TASKS) {
-            break;
-        }
-        get_task_struct(task);
-        kswapd_tasks[count++] = task;
-    }
-    rcu_read_unlock();
-
-    for (i = 0; i < count; i++) {
-        if (set_cpus_allowed_ptr(kswapd_tasks[i], mask) == 0) {
-            pinned++;
-        }
-        put_task_struct(kswapd_tasks[i]);
-    }
-
-    if (pinned > 0) {
-        atomic64_inc(&g_axd_stats.kswapd_pin_count);
-    }
-
-    return pinned > 0 ? 0 : -ESRCH;
-}
-
 static int __init axd_init(void)
 {
     int ret;
 
     atomic64_set(&g_axd_stats.affinity_set_count, 0);
-    atomic64_set(&g_axd_stats.boost_set_count, 0);
     atomic64_set(&g_axd_stats.reset_count, 0);
-    atomic64_set(&g_axd_stats.kswapd_pin_count, 0);
 
     ret = axd_proc_init();
     if (ret)

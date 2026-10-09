@@ -113,7 +113,6 @@ static ssize_t nta_affinity_write(struct file *file, const char __user *buf, siz
     char *token1;
     char *token2;
     char *token3;
-    unsigned long mask_val;
     struct cpumask mask;
     pid_t pid = 0;
     pid_t parsed_pid = 0;
@@ -159,22 +158,18 @@ static ssize_t nta_affinity_write(struct file *file, const char __user *buf, siz
         mutex_unlock(&g_proc_lock);
     }
 
-    ret = kstrtoul(mask_str, 0, &mask_val);
+    cpumask_clear(&mask);
+    ret = cpulist_parse(mask_str, &mask);
     if (ret) {
-        ret = kstrtoul(mask_str, AXD_RADIX_HEX, &mask_val);
-        if (ret) {
-            kfree(kbuf);
-            return ret;
-        }
+        kfree(kbuf);
+        return ret;
     }
 
-    if (mask_val == 0) {
+    if (cpumask_empty(&mask) || !cpumask_intersects(&mask, cpu_possible_mask)) {
         kfree(kbuf);
         return -EINVAL;
     }
-
-    cpumask_clear(&mask);
-    *(unsigned long *)cpumask_bits(&mask) = mask_val;
+    cpumask_and(&mask, &mask, cpu_possible_mask);
 
     ret = axd_set_affinity(pid, comm_str, &mask);
     kfree(kbuf);
@@ -220,87 +215,14 @@ static ssize_t nta_reset_write(struct file *file, const char __user *buf, size_t
 
 AXD_PROC_OPS_WO(nta_reset_ops, nta_reset_write, noop_llseek);
 
-static ssize_t dragonite_boost_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
-{
-    char kbuf[AXD_MAX_KBUF_BOOST];
-    pid_t pid;
-    int boost_level = AXD_DEFAULT_BOOST_LEVEL;
-    char *p;
-    int ret;
 
-    if (count >= sizeof(kbuf))
-        return -EINVAL;
-
-    if (copy_from_user(kbuf, buf, count))
-        return -EFAULT;
-
-    kbuf[count] = '\0';
-    p = strim(kbuf);
-
-    ret = sscanf(p, "%d %d", &pid, &boost_level);
-    if (ret < 1) {
-        return -EINVAL;
-    }
-
-    ret = axd_set_boost(pid, boost_level);
-    if (ret != 0) {
-        return ret;
-    }
-
-    return count;
-}
-
-AXD_PROC_OPS_WO(dragonite_boost_ops, dragonite_boost_write, noop_llseek);
-
-static ssize_t dragonite_kswapd_write(struct file *file, const char __user *buf, size_t count, loff_t *ppos)
-{
-    char kbuf[AXD_MAX_KBUF_KSWAPD];
-    unsigned long mask_val;
-    struct cpumask mask;
-    int ret;
-
-    if (count >= sizeof(kbuf)) {
-        return -EINVAL;
-    }
-
-    if (copy_from_user(kbuf, buf, count)) {
-        return -EFAULT;
-    }
-
-    kbuf[count] = '\0';
-    ret = kstrtoul(strim(kbuf), 0, &mask_val);
-    if (ret != 0) {
-        ret = kstrtoul(strim(kbuf), AXD_RADIX_HEX, &mask_val);
-        if (ret != 0) {
-            return ret;
-        }
-    }
-
-    if (mask_val == 0) {
-        return -EINVAL;
-    }
-
-    cpumask_clear(&mask);
-    *(unsigned long *)cpumask_bits(&mask) = mask_val;
-
-    ret = axd_pin_kswapd(&mask);
-    if (ret != 0 && ret != -ESRCH) {
-        return ret;
-    }
-
-    return count;
-}
-
-AXD_PROC_OPS_WO(dragonite_kswapd_ops, dragonite_kswapd_write, noop_llseek);
 
 static int dragonite_stats_show(struct seq_file *m, void *v)
 {
     seq_printf(m, "ax_dragonite version: %s\n", AXD_VERSION);
     seq_printf(m, "target_pid: %d\n", g_current_target_pid);
     seq_printf(m, "affinity_sets: %lld\n", atomic64_read(&g_axd_stats.affinity_set_count));
-    seq_printf(m, "boost_sets: %lld\n", atomic64_read(&g_axd_stats.boost_set_count));
     seq_printf(m, "affinity_resets: %lld\n", atomic64_read(&g_axd_stats.reset_count));
-    seq_printf(m, "kswapd_pins: %lld\n", atomic64_read(&g_axd_stats.kswapd_pin_count));
     return 0;
 }
 
@@ -322,8 +244,6 @@ int axd_proc_init(void)
 
     ax_dragonite_dir = proc_mkdir(AXD_PROC_DRAGONITE_DIR, NULL);
     if (ax_dragonite_dir) {
-        proc_create(AXD_PROC_BOOST, 0222, ax_dragonite_dir, &dragonite_boost_ops);
-        proc_create(AXD_PROC_KSWAPD_PIN, 0222, ax_dragonite_dir, &dragonite_kswapd_ops);
         proc_create(AXD_PROC_STATS, 0444, ax_dragonite_dir, &dragonite_stats_ops);
     }
 
