@@ -3,16 +3,28 @@ on boot
     chmod 0664 /sys/devices/platform/1c500000.mali/hint_min_freq
     chown system system /sys/devices/platform/1c500000.mali/available_frequencies
     chmod 0444 /sys/devices/platform/1c500000.mali/available_frequencies
+    chown system system /sys/devices/platform/1c500000.mali/min_freq
+    chmod 0664 /sys/devices/platform/1c500000.mali/min_freq
+    chown system system /sys/devices/platform/1c500000.mali/max_freq
+    chmod 0664 /sys/devices/platform/1c500000.mali/max_freq
 
     chown system system /sys/devices/platform/28000000.mali/hint_min_freq
     chmod 0664 /sys/devices/platform/28000000.mali/hint_min_freq
     chown system system /sys/devices/platform/28000000.mali/available_frequencies
     chmod 0444 /sys/devices/platform/28000000.mali/available_frequencies
+    chown system system /sys/devices/platform/28000000.mali/min_freq
+    chmod 0664 /sys/devices/platform/28000000.mali/min_freq
+    chown system system /sys/devices/platform/28000000.mali/max_freq
+    chmod 0664 /sys/devices/platform/28000000.mali/max_freq
 
     chown system system /sys/devices/platform/1f000000.mali/hint_min_freq
     chmod 0664 /sys/devices/platform/1f000000.mali/hint_min_freq
     chown system system /sys/devices/platform/1f000000.mali/available_frequencies
     chmod 0444 /sys/devices/platform/1f000000.mali/available_frequencies
+    chown system system /sys/devices/platform/1f000000.mali/min_freq
+    chmod 0664 /sys/devices/platform/1f000000.mali/min_freq
+    chown system system /sys/devices/platform/1f000000.mali/max_freq
+    chmod 0664 /sys/devices/platform/1f000000.mali/max_freq
 
     chown system system /sys/devices/platform/17000010.devfreq_mif/devfreq/17000010.devfreq_mif/min_freq
     chmod 0664 /sys/devices/platform/17000010.devfreq_mif/devfreq/17000010.devfreq_mif/min_freq

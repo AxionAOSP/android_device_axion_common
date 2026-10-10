@@ -86,6 +86,10 @@ on post-fs-data
 
     chown system system /sys/devices/platform/1f000000.mali/hint_min_freq
     chmod 0664 /sys/devices/platform/1f000000.mali/hint_min_freq
+    chown system system /sys/devices/platform/1f000000.mali/min_freq
+    chmod 0664 /sys/devices/platform/1f000000.mali/min_freq
+    chown system system /sys/devices/platform/1f000000.mali/max_freq
+    chmod 0664 /sys/devices/platform/1f000000.mali/max_freq
 
     chown system system /sys/devices/platform/17000090.devfreq_dsu/devfreq/17000090.devfreq_dsu/min_freq
     chmod 0664 /sys/devices/platform/17000090.devfreq_dsu/devfreq/17000090.devfreq_dsu/min_freq

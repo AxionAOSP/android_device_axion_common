@@ -37,7 +37,7 @@
         governorAvailablePath="/sys/devices/system/cpu/cpufreq/policy8/scaling_available_governors" />
 
     <gpu
-        node="/sys/devices/platform/1f000000.mali/devfreq/1f000000.mali"
+        node="/sys/devices/platform/1f000000.mali"
         currentNode="/sys/devices/platform/1f000000.mali/cur_freq"
         usageNode="/sys/devices/platform/1f000000.mali/utilization"
         frequencyMultiplier="1000"
