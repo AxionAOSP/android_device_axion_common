@@ -1,3 +1,4 @@
+include device/axion/common/config/soc_map.mk
 include device/axion/common/config/flags.mk
 
 ifneq ($(filter gs101 gs201 zuma zumapro,$(TARGET_BOARD_PLATFORM)),)

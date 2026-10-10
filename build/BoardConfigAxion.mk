@@ -1,10 +1,6 @@
-include device/axion/common/config/flags.mk
-
 ifneq ($(TARGET_BOARD_PLATFORM),)
 -include device/axion/common/platform/$(TARGET_BOARD_PLATFORM)/board.mk
 endif
-
-include device/axion/common/config/board/properties_flags.mk
 
 ifeq ($(TARGET_SHIPS_AXION_KERNEL_MODULES),true)
 include device/axion/common/config/board/kernel_modules.mk
