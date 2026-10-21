@@ -323,7 +323,8 @@ int main() {
         }
         return PublishStatus(0, "disabled") ? 0 : 1;
     }
-    if (!android::base::GetBoolProperty("ro.crypto.metadata.enabled", false)) {
+    if (!android::base::GetBoolProperty("ro.crypto.metadata.enabled", false) &&
+        android::base::GetProperty("ro.crypto.state", "") != "encrypted") {
         return Fail("encryption_required");
     }
 
