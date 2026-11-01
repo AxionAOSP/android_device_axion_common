@@ -221,8 +221,8 @@ static int dragonite_stats_show(struct seq_file *m, void *v)
 {
     seq_printf(m, "ax_dragonite version: %s\n", AXD_VERSION);
     seq_printf(m, "target_pid: %d\n", g_current_target_pid);
-    seq_printf(m, "affinity_sets: %lld\n", atomic64_read(&g_axd_stats.affinity_set_count));
-    seq_printf(m, "affinity_resets: %lld\n", atomic64_read(&g_axd_stats.reset_count));
+    seq_printf(m, "affinity_sets: %lld\n", (long long)atomic64_read(&g_axd_stats.affinity_set_count));
+    seq_printf(m, "affinity_resets: %lld\n", (long long)atomic64_read(&g_axd_stats.reset_count));
     return 0;
 }
 
