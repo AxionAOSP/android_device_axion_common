@@ -40,10 +40,6 @@ ro.input.video_enabled=false
 # EGL shader cache
 ro.egl.blobcache.multifile_limit=67108864
 
-# skia 
-debug.renderengine.backend=skiaglthreaded
-debug.hwui.renderer=skiagl
-
 # ram plus
 persist.sys.ax_rp_supp=true
 persist.sys.ax_rp_size_mb=0
