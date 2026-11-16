@@ -41,6 +41,20 @@ MODULE_PARM_DESC(sched_burst_penalty_scale, "BORE burst penalty scale");
 
 module_param_named(sched_burst_cache_lifetime, sched_burst_cache_lifetime, uint, 0644);
 MODULE_PARM_DESC(sched_burst_cache_lifetime, "BORE burst cache lifetime in ns");
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
+uint sched_burst_protect_slice_lv = DEFAULT_BURST_PROTECT_SLICE_LV;
+uint sched_credit_cap_us = DEFAULT_CREDIT_CAP_US;
+static int bore_max_credit_cap_us = MAX_CREDIT_CAP_US;
+
+module_param_named(sched_burst_protect_slice_lv, sched_burst_protect_slice_lv, uint, 0644);
+MODULE_PARM_DESC(sched_burst_protect_slice_lv, "BORE slice protection level (0: off, 1: an equal or heavier waker preempts, 2: only a heavier waker preempts, 3: no weight preemption)");
+
+module_param_named(sched_credit_cap_us, sched_credit_cap_us, uint, 0644);
+MODULE_PARM_DESC(sched_credit_cap_us, "BORE wakeup deadline credit cap in us (0: off)");
+
+extern const int sched_prio_to_weight[40];
+extern const u32 sched_prio_to_wmult[40];
+#endif
 
 static bool bore_hooks_active;
 static u32 bore_reciprocal_lut[BURST_CACHE_SAMPLE_LIMIT + 1];
@@ -272,6 +286,175 @@ static void restart_burst_bore(struct task_struct *p, struct bore_ctx *ctx, int 
 	update_penalty(p, ctx, new_prio);
 }
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
+static void bore_check_weight(struct task_struct *p, struct bore_ctx *ctx, int *new_prio)
+{
+	u8 prio;
+
+	if (!bore_task_is_eligible(p) || p->policy == SCHED_IDLE)
+		return;
+
+	prio = effective_prio_bore(p, ctx);
+	if (p->se.load.inv_weight != sched_prio_to_wmult[prio])
+		*new_prio = prio;
+}
+
+static inline u64 rescale_slice(u64 delta, u8 old_prio, u8 new_prio)
+{
+	u64 unscaled = mul_u64_u32_shr(delta, sched_prio_to_weight[old_prio], 10);
+
+	return mul_u64_u32_shr(unscaled, sched_prio_to_wmult[new_prio], 22);
+}
+
+static u64 bore_credit_ns(struct bore_ctx *ctx, u64 now)
+{
+	u64 cap = (u64)sched_credit_cap_us * NSEC_PER_USEC;
+	u64 slept;
+
+	if (!ctx->credit_sleep)
+		return 0;
+
+	slept = now - ctx->credit_sleep;
+	if ((s64)slept <= 0)
+		return 0;
+
+	ctx->credit_sleep = 0;
+	return min(slept, cap);
+}
+
+static void probe_bore_update_curr(void *data, struct task_struct *p, u64 delta_exec, int *new_prio)
+{
+	struct bore_ctx *ctx = bore_get_ctx(p);
+
+	ctx->burst_time += delta_exec;
+	ctx->curr_penalty = calc_burst_penalty(ctx->burst_time);
+	if (ctx->curr_penalty > ctx->prev_penalty)
+		update_penalty(p, ctx, NULL);
+
+	bore_check_weight(p, ctx, new_prio);
+}
+
+static void probe_bore_dequeue_task_fair(void *data, struct task_struct *p, u64 now, int *new_prio)
+{
+	struct bore_ctx *ctx = bore_get_ctx(p);
+
+	ctx->credit_sleep = now;
+	restart_burst_bore(p, ctx, NULL);
+	bore_check_weight(p, ctx, new_prio);
+}
+
+static void probe_bore_yield_task_fair(void *data, struct task_struct *p, int *new_prio,
+				       s64 *vremain, bool *rescaled)
+{
+	struct bore_ctx *ctx = bore_get_ctx(p);
+	u8 old_prio = effective_prio_bore(p, ctx);
+	u8 prio;
+	s64 vscaled;
+
+	restart_burst_bore(p, ctx, NULL);
+	bore_check_weight(p, ctx, new_prio);
+
+	prio = effective_prio_bore(p, ctx);
+	if (old_prio <= prio)
+		return;
+
+	vscaled = rescale_slice(abs(*vremain), old_prio, prio);
+	*vremain = *vremain < 0 ? -vscaled : vscaled;
+	*rescaled = true;
+}
+
+static void probe_bore_task_fork(void *data, struct task_struct *p, struct task_struct *parent,
+				 u64 clone_flags, int *new_prio)
+{
+	struct bore_ctx *ctx;
+	u32 inherited_penalty = 0;
+	u64 now;
+
+	if (!sched_bore || !bore_task_is_eligible(p))
+		return;
+
+	ctx = bore_get_ctx(p);
+	now = ktime_get_ns();
+
+	rcu_read_lock();
+	if (clone_flags & CLONE_THREAD)
+		inherited_penalty = inherit_from_thread_group(parent, now);
+	else if (sched_burst_inherit_type == 2)
+		inherited_penalty = inherit_from_ancestor_hub(parent, clone_flags, now);
+	else if (sched_burst_inherit_type == 1)
+		inherited_penalty = inherit_from_parent(parent, clone_flags, now);
+
+	if (ctx->prev_penalty < inherited_penalty)
+		ctx->prev_penalty = (u16)inherited_penalty;
+	ctx->curr_penalty = 0;
+	ctx->burst_time = 0;
+	ctx->stop_update = false;
+	ctx->futex_waiting = false;
+
+	update_penalty(p, ctx, NULL);
+	rcu_read_unlock();
+
+	bore_check_weight(p, ctx, new_prio);
+}
+
+static void probe_bore_place_entity(void *data, struct sched_entity *se, struct task_struct *p,
+				    bool initial, bool wakeup, u64 vslice, u64 now, bool *placed)
+{
+	if (!sched_bore)
+		return;
+
+	if (p && bore_get_ctx(p)->futex_waiting)
+		vslice = 0;
+	else if (initial || wakeup)
+		vslice >>= 1;
+
+	se->deadline = se->vruntime + vslice;
+
+	if (sched_credit_cap_us && p && wakeup) {
+		u64 credit = bore_credit_ns(bore_get_ctx(p), now);
+
+		if (credit && se->deadline > credit)
+			se->deadline -= credit;
+	}
+
+	*placed = true;
+}
+
+static void probe_bore_protect_slice(void *data, struct task_struct *p, bool *protect)
+{
+	if (!sched_bore)
+		return;
+
+	*protect = sched_burst_protect_slice_lv && !(p && bore_get_ctx(p)->futex_waiting);
+}
+
+static void probe_bore_preempt_weight(void *data, struct sched_entity *pse,
+				      struct sched_entity *se, bool *check)
+{
+	if (!sched_bore || (sched_burst_protect_slice_lv != 1 && sched_burst_protect_slice_lv != 2))
+		return;
+
+	if (sched_burst_protect_slice_lv == 2)
+		*check = pse->load.weight > se->load.weight;
+	else
+		*check = pse->load.weight >= se->load.weight;
+}
+
+static void probe_bore_enabled(void *data, bool *enabled)
+{
+	*enabled = sched_bore;
+}
+
+static void probe_bore_switched_to_fair(void *data, struct task_struct *p)
+{
+	memset(bore_get_ctx(p), 0, sizeof(struct bore_ctx));
+}
+
+static void probe_bore_futex_wait(void *data, struct task_struct *p, bool waiting)
+{
+	bore_get_ctx(p)->futex_waiting = waiting;
+}
+#else
 static void probe_bore_update_curr(void *data, struct task_struct *p, u64 delta_exec, int *new_prio)
 {
 	struct bore_ctx *ctx;
@@ -362,6 +545,7 @@ static void probe_bore_init_entity(void *data, struct sched_entity *se)
 	ctx = bore_get_ctx_se(se);
 	memset(ctx, 0, sizeof(*ctx));
 }
+#endif
 
 static void probe_bore_set_load_weight(void *data, struct task_struct *p, int *prio)
 {
@@ -376,7 +560,11 @@ static void probe_bore_set_load_weight(void *data, struct task_struct *p, int *p
 
 static int bore_proc_show(struct seq_file *m, void *v)
 {
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
+	seq_printf(m, "BORE (Burst-Oriented Response Enhancer) CPU Scheduler 7.0.0\n");
+#else
 	seq_printf(m, "BORE (Burst-Oriented Response Enhancer) CPU Scheduler 6.8.0\n");
+#endif
 	if (!bore_hooks_active) {
 		seq_printf(m, "status:                      disabled (kernel hooks not present / no-op mode)\n");
 		return 0;
@@ -387,6 +575,10 @@ static int bore_proc_show(struct seq_file *m, void *v)
 	seq_printf(m, "sched_burst_penalty_offset:  %u\n", sched_burst_penalty_offset);
 	seq_printf(m, "sched_burst_penalty_scale:   %u\n", sched_burst_penalty_scale);
 	seq_printf(m, "sched_burst_cache_lifetime:  %u\n", sched_burst_cache_lifetime);
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
+	seq_printf(m, "sched_burst_protect_slice_lv: %u\n", sched_burst_protect_slice_lv);
+	seq_printf(m, "sched_credit_cap_us:         %u\n", sched_credit_cap_us);
+#endif
 	return 0;
 }
 
@@ -454,7 +646,29 @@ static struct ctl_table bore_table[] = {
 		.mode		= 0644,
 		.proc_handler	= proc_dointvec_minmax,
 	},
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
+	{
+		.procname	= "sched_burst_protect_slice_lv",
+		.data		= &sched_burst_protect_slice_lv,
+		.maxlen		= sizeof(uint),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= SYSCTL_THREE,
+	},
+	{
+		.procname	= "sched_credit_cap_us",
+		.data		= &sched_credit_cap_us,
+		.maxlen		= sizeof(uint),
+		.mode		= 0644,
+		.proc_handler	= proc_dointvec_minmax,
+		.extra1		= SYSCTL_ZERO,
+		.extra2		= &bore_max_credit_cap_us,
+	},
+#endif
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 6, 0)
 	{ }
+#endif
 };
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0)
@@ -480,16 +694,108 @@ static void init_bore_tasks(void)
 	}
 	rcu_read_unlock();
 }
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
+
+static int bore_register_hooks(void)
+{
+	int ret;
+
+	ret = register_trace_android_vh_bore_update_curr(probe_bore_update_curr, NULL);
+	if (ret)
+		return ret;
+	ret = register_trace_android_vh_bore_dequeue_task_fair(probe_bore_dequeue_task_fair, NULL);
+	if (ret)
+		goto fail_dequeue;
+	ret = register_trace_android_vh_bore_yield_task_fair(probe_bore_yield_task_fair, NULL);
+	if (ret)
+		goto fail_yield;
+	ret = register_trace_android_vh_bore_task_fork(probe_bore_task_fork, NULL);
+	if (ret)
+		goto fail_task_fork;
+	ret = register_trace_android_vh_bore_set_load_weight(probe_bore_set_load_weight, NULL);
+	if (ret)
+		goto fail_set_load_weight;
+	ret = register_trace_android_vh_bore_place_entity(probe_bore_place_entity, NULL);
+	if (ret)
+		goto fail_place_entity;
+	ret = register_trace_android_vh_bore_protect_slice(probe_bore_protect_slice, NULL);
+	if (ret)
+		goto fail_protect_slice;
+	ret = register_trace_android_vh_bore_preempt_weight(probe_bore_preempt_weight, NULL);
+	if (ret)
+		goto fail_preempt_weight;
+	ret = register_trace_android_vh_bore_enabled(probe_bore_enabled, NULL);
+	if (ret)
+		goto fail_enabled;
+	ret = register_trace_android_vh_bore_switched_to_fair(probe_bore_switched_to_fair, NULL);
+	if (ret)
+		goto fail_switched_to_fair;
+	ret = register_trace_android_vh_bore_futex_wait(probe_bore_futex_wait, NULL);
+	if (ret)
+		goto fail_futex_wait;
+	return 0;
+
+fail_futex_wait:
+	unregister_trace_android_vh_bore_switched_to_fair(probe_bore_switched_to_fair, NULL);
+fail_switched_to_fair:
+	unregister_trace_android_vh_bore_enabled(probe_bore_enabled, NULL);
+fail_enabled:
+	unregister_trace_android_vh_bore_preempt_weight(probe_bore_preempt_weight, NULL);
+fail_preempt_weight:
+	unregister_trace_android_vh_bore_protect_slice(probe_bore_protect_slice, NULL);
+fail_protect_slice:
+	unregister_trace_android_vh_bore_place_entity(probe_bore_place_entity, NULL);
+fail_place_entity:
+	unregister_trace_android_vh_bore_set_load_weight(probe_bore_set_load_weight, NULL);
+fail_set_load_weight:
+	unregister_trace_android_vh_bore_task_fork(probe_bore_task_fork, NULL);
+fail_task_fork:
+	unregister_trace_android_vh_bore_yield_task_fair(probe_bore_yield_task_fair, NULL);
+fail_yield:
+	unregister_trace_android_vh_bore_dequeue_task_fair(probe_bore_dequeue_task_fair, NULL);
+fail_dequeue:
+	unregister_trace_android_vh_bore_update_curr(probe_bore_update_curr, NULL);
+	return ret;
+}
+
+static void bore_unregister_hooks(void)
+{
+	unregister_trace_android_vh_bore_futex_wait(probe_bore_futex_wait, NULL);
+	unregister_trace_android_vh_bore_switched_to_fair(probe_bore_switched_to_fair, NULL);
+	unregister_trace_android_vh_bore_enabled(probe_bore_enabled, NULL);
+	unregister_trace_android_vh_bore_preempt_weight(probe_bore_preempt_weight, NULL);
+	unregister_trace_android_vh_bore_protect_slice(probe_bore_protect_slice, NULL);
+	unregister_trace_android_vh_bore_place_entity(probe_bore_place_entity, NULL);
+	unregister_trace_android_vh_bore_set_load_weight(probe_bore_set_load_weight, NULL);
+	unregister_trace_android_vh_bore_task_fork(probe_bore_task_fork, NULL);
+	unregister_trace_android_vh_bore_yield_task_fair(probe_bore_yield_task_fair, NULL);
+	unregister_trace_android_vh_bore_dequeue_task_fair(probe_bore_dequeue_task_fair, NULL);
+	unregister_trace_android_vh_bore_update_curr(probe_bore_update_curr, NULL);
+}
+#endif
 
 static int __init bore_sched_init(void)
 {
 	int ret;
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 0, 0)
+	BUILD_BUG_ON(sizeof(struct bore_ctx) > sizeof(((struct task_struct *)0)->android_oem_data1));
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
+	BUILD_BUG_ON(sizeof(struct bore_ctx) != 40);
+	BUILD_BUG_ON(offsetof(struct task_struct, __kabi_reserved5) -
+		     offsetof(struct task_struct, __kabi_reserved1) != 4 * sizeof(u64));
+#else
 	BUILD_BUG_ON(sizeof(struct bore_ctx) != 32);
+#endif
 
 	init_bore_reciprocal_lut();
 	init_bore_tasks();
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
+	ret = bore_register_hooks();
+	if (ret)
+		goto fail_hooks;
+#else
 	ret = register_trace_android_vh_bore_update_curr(probe_bore_update_curr, NULL);
 	if (ret)
 		goto fail_hooks;
@@ -517,6 +823,7 @@ static int __init bore_sched_init(void)
 	ret = register_trace_android_vh_bore_set_load_weight(probe_bore_set_load_weight, NULL);
 	if (ret)
 		goto fail_set_load_weight;
+#endif
 
 	bore_hooks_active = true;
 
@@ -527,9 +834,14 @@ static int __init bore_sched_init(void)
 #endif
 	bore_proc_entry = proc_create("bore", 0444, NULL, &bore_proc_fops);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
+	pr_info("bore_sched: BORE 7.0.0 scheduler module initialized\n");
+#else
 	pr_info("bore_sched: BORE 6.8.0 scheduler module initialized\n");
+#endif
 	return 0;
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 18, 0)
 fail_set_load_weight:
 	unregister_trace_android_vh_bore_init_entity(probe_bore_init_entity, NULL);
 fail_init_entity:
@@ -542,6 +854,7 @@ fail_set_next:
 	unregister_trace_android_vh_bore_dequeue_task_fair(probe_bore_dequeue_task_fair, NULL);
 fail_dequeue:
 	unregister_trace_android_vh_bore_update_curr(probe_bore_update_curr, NULL);
+#endif
 fail_hooks:
 	pr_info("bore_sched: kernel hooks not present (ret=%d), running in no-op mode\n", ret);
 	sched_bore = 0;
@@ -561,6 +874,11 @@ static void __exit bore_sched_exit(void)
 	if (bore_sysctl_header)
 		unregister_sysctl_table(bore_sysctl_header);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
+	bore_unregister_hooks();
+
+	pr_info("bore_sched: BORE 7.0.0 scheduler module unloaded\n");
+#else
 	unregister_trace_android_vh_bore_set_load_weight(probe_bore_set_load_weight, NULL);
 	unregister_trace_android_vh_bore_init_entity(probe_bore_init_entity, NULL);
 	unregister_trace_android_vh_bore_task_fork(probe_bore_task_fork, NULL);
@@ -570,6 +888,7 @@ static void __exit bore_sched_exit(void)
 	unregister_trace_android_vh_bore_update_curr(probe_bore_update_curr, NULL);
 
 	pr_info("bore_sched: BORE 6.8.0 scheduler module unloaded\n");
+#endif
 }
 
 module_init(bore_sched_init);

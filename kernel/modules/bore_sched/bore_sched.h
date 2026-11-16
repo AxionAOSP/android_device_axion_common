@@ -12,6 +12,7 @@
 #include <linux/sched.h>
 #include <linux/sched/prio.h>
 #include <linux/types.h>
+#include <linux/version.h>
 
 #define MAX_BURST_PENALTY ((40U << 8) - 1)
 #define BORE_BC_TIMESTAMP_SHIFT 16
@@ -32,6 +33,11 @@
 #define DEFAULT_BURST_PENALTY_OFFSET 24
 #define DEFAULT_BURST_PENALTY_SCALE 1536
 #define DEFAULT_BURST_CACHE_LIFETIME 75000000U
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
+#define DEFAULT_BURST_PROTECT_SLICE_LV 1
+#define DEFAULT_CREDIT_CAP_US 16000U
+#define MAX_CREDIT_CAP_US 1000000
+#endif
 
 extern uint sched_bore;
 extern uint sched_burst_inherit_type;
@@ -39,6 +45,10 @@ extern uint sched_burst_smoothness;
 extern uint sched_burst_penalty_offset;
 extern uint sched_burst_penalty_scale;
 extern uint sched_burst_cache_lifetime;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
+extern uint sched_burst_protect_slice_lv;
+extern uint sched_credit_cap_us;
+#endif
 
 struct bore_bc {
 	union {
@@ -52,6 +62,9 @@ struct bore_bc {
 
 struct bore_ctx {
 	u64 burst_time;
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
+	u64 credit_sleep;
+#endif
 	u16 prev_penalty;
 	u16 curr_penalty;
 	u16 penalty;
@@ -61,6 +74,17 @@ struct bore_ctx {
 	struct bore_bc group;
 };
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 0, 0)
+static inline struct bore_ctx *bore_get_ctx(struct task_struct *p)
+{
+	return (struct bore_ctx *)p->android_oem_data1;
+}
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(6, 18, 0)
+static inline struct bore_ctx *bore_get_ctx(struct task_struct *p)
+{
+	return (struct bore_ctx *)&p->__kabi_reserved1;
+}
+#else
 static inline struct bore_ctx *bore_get_ctx_se(struct sched_entity *se)
 {
 	return (struct bore_ctx *)&se->android_kabi_reserved1;
@@ -70,6 +94,7 @@ static inline struct bore_ctx *bore_get_ctx(struct task_struct *p)
 {
 	return bore_get_ctx_se(&p->se);
 }
+#endif
 
 static inline bool bore_entity_is_task(struct sched_entity *se)
 {

@@ -48,6 +48,7 @@ on boot
     chown system system /dev/cpuset/restricted/cpus
     chown system system /dev/cpuset/camera-daemon/cpus
     chown system system /dev/cpuset/dex2oat/cpus
+    chown system system /dev/cpuset/ax_foreground/cpus
 
     chmod 0664 /dev/cpuset/top-app/cpus
     chmod 0664 /dev/cpuset/foreground/cpus
@@ -56,3 +57,4 @@ on boot
     chmod 0664 /dev/cpuset/restricted/cpus
     chmod 0664 /dev/cpuset/camera-daemon/cpus
     chmod 0664 /dev/cpuset/dex2oat/cpus
+    chmod 0664 /dev/cpuset/ax_foreground/cpus
