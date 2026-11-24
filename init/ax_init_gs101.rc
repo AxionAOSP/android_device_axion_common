@@ -30,9 +30,9 @@ on post-fs-data
     write /sys/devices/system/cpu/cpufreq/policy0/sched_pixel/up_rate_limit_us 0
     write /sys/devices/system/cpu/cpufreq/policy4/sched_pixel/up_rate_limit_us 0
     write /sys/devices/system/cpu/cpufreq/policy6/sched_pixel/up_rate_limit_us 0
-    write /sys/devices/system/cpu/cpufreq/policy0/sched_pixel/down_rate_limit_us 20000
-    write /sys/devices/system/cpu/cpufreq/policy4/sched_pixel/down_rate_limit_us 20000
-    write /sys/devices/system/cpu/cpufreq/policy6/sched_pixel/down_rate_limit_us 20000
+    write /sys/devices/system/cpu/cpufreq/policy0/sched_pixel/down_rate_limit_us 4000
+    write /sys/devices/system/cpu/cpufreq/policy4/sched_pixel/down_rate_limit_us 4000
+    write /sys/devices/system/cpu/cpufreq/policy6/sched_pixel/down_rate_limit_us 4000
     chown system system /sys/devices/system/cpu/cpufreq/policy0/sched_pixel/up_rate_limit_us
     chown system system /sys/devices/system/cpu/cpufreq/policy4/sched_pixel/up_rate_limit_us
     chown system system /sys/devices/system/cpu/cpufreq/policy6/sched_pixel/up_rate_limit_us
