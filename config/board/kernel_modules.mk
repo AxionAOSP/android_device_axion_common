@@ -5,7 +5,7 @@ AXION_COMMON_KERNEL_MODULES := \
     ax_dragonite
 
 ifeq ($(TARGET_USE_BORE_SCHED),false)
-ifneq ($(wildcard $(TARGET_KERNEL_SOURCE)/include/trace/hooks/bore.h $(KERNEL_SRC)/include/trace/hooks/bore.h $(TARGET_KERNEL_HEADERS)/include/trace/hooks/bore.h out-kernel/google/gs-6.1/aosp/include/trace/hooks/bore.h),)
+ifneq ($(wildcard $(TARGET_KERNEL_SOURCE)/include/trace/hooks/bore.h $(KERNEL_SRC)/include/trace/hooks/bore.h $(TARGET_KERNEL_HEADERS)/include/trace/hooks/bore.h out-kernel/$(TARGET_KERNEL_PLATFORM_SOURCE)/aosp/include/trace/hooks/bore.h),)
 TARGET_USE_BORE_SCHED := true
 endif
 endif
@@ -22,7 +22,7 @@ BOARD_VENDOR_KERNEL_MODULES_LOAD := \
 endif
 
 ifeq ($(TARGET_USE_LATENCY_SCHED),false)
-ifneq ($(wildcard $(TARGET_KERNEL_SOURCE)/include/trace/hooks/latency.h $(KERNEL_SRC)/include/trace/hooks/latency.h $(TARGET_KERNEL_HEADERS)/include/trace/hooks/latency.h out-kernel/google/gs-6.1/aosp/include/trace/hooks/latency.h),)
+ifneq ($(wildcard $(TARGET_KERNEL_SOURCE)/include/trace/hooks/latency.h $(KERNEL_SRC)/include/trace/hooks/latency.h $(TARGET_KERNEL_HEADERS)/include/trace/hooks/latency.h out-kernel/$(TARGET_KERNEL_PLATFORM_SOURCE)/aosp/include/trace/hooks/latency.h),)
 TARGET_USE_LATENCY_SCHED := true
 endif
 endif
